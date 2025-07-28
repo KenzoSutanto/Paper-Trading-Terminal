@@ -5,6 +5,7 @@ import keys
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+import datetime
 
 
 
@@ -47,7 +48,7 @@ st.sidebar.button("Send Order", on_click=marketOrder)
 # ─── Dynamic Refresh ───────────────────────────────────────────────────────────
 screen = st.sidebar.radio("View", ["Dashboard", "Chart"])
 if screen == "Dashboard":
-    st_autorefresh(interval=10000, key="data_refresh")
+    
 
     pnl_ph      = st.empty()
     orders_ph   = st.empty()
@@ -85,29 +86,17 @@ if screen == "Dashboard":
         for p in positions
     ])
 elif screen == "Chart":
-   import streamlit.components.v1 as components
-html = """
-    <div class="tradingview-widget-container">
-    <!-- force the container to be tall -->
-    <div id="tv_chart_container" style="height:600px; width:100%;"></div>
-    <script src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-        new TradingView.widget({
-        container_id: "tv_chart_container",
-        autosize: true,
-        symbol: "NASDAQ:AAPL",
-        interval: "60",
-        timezone: "Asia/Singapore",
-        theme: "Light",
-        style: "1",
-        toolbar_bg: "#f1f3f6",
-        hide_side_toolbar: false,
-        allow_symbol_change: true,
-        withdateranges: true
-        });
-    </script>
-    </div>
-    """
+    import streamlit.components.v1 as components
+    import yfinance as yf
+    import pandas as pd
+    import plotly
+    def fetch_stock(sym):
+       return yf.download(sym,"2020-01-01")
+    data = (fetch_stock("AAPL"))
+    st.line_chart(data["Close"])
+    
+    
 
-    # specify a matching height here too
-components.html(html, height=600, scrolling=True)
+
+   
+
