@@ -89,11 +89,64 @@ elif screen == "Chart":
     import streamlit.components.v1 as components
     import yfinance as yf
     import pandas as pd
-    import plotly
+    import altair as alt
+    import datetime
+    from datetime import timedelta
+    from datetime import datetime
+    @st.cache_data
     def fetch_stock(sym):
-       return yf.download(sym,"2020-01-01")
-    data = (fetch_stock("AAPL"))
-    st.line_chart(data["Close"])
+       return yf.download(sym,datetime.now()-timedelta(days=7))
+    try:
+        ticker = yf.Ticker(st.session_state.sym)
+        data = (fetch_stock(st.session_state.sym))
+        data["Date"] = data.index
+        data = data[["Date","Open","Close","Volume"]]
+        max_date = max(data["Date"])
+        min_date = max_date - timedelta(days=7)
+        filtered = data[(data["Date"] >= min_date) & (data["Date"] <= max_date)]
+        min_price = float(filtered['Close'].min())
+        max_price = float(filtered['Close'].max())
+        diff = (max_price - min_price) * 0.10
+
+
+
+        def chart(filtered):
+            chart = alt.Chart(filtered).mark_line().encode(
+                x=alt.X('Date:T', axis=alt.Axis(title='Date')),
+                y=alt.Y('Close:Q',scale=alt.Scale(domain=[min_price - diff, max_price + diff]), axis=alt.Axis(title='Close Price'))
+            )
+            return chart
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("<h4 style='margin-bottom:0;'>Current Price</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px;  font-weight:bold;'>${ticker.info['currentPrice']}</p>", unsafe_allow_html=True)
+            st.markdown("<h4 style='margin-bottom:0;'>Previous Close</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px;  font-weight:bold;'>${ticker.info['previousClose']}</p>", unsafe_allow_html=True)
+
+        with col2:
+            st.markdown("<h4 style='margin-bottom:0;'>Day High</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px;  font-weight:bold;'>${ticker.info['dayHigh']}</p>", unsafe_allow_html=True)
+            st.markdown("<h4 style='margin-bottom:0;'>Day Low</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['dayLow']}</p>", unsafe_allow_html=True)
+
+        with col3:
+            st.markdown("<h4 style='margin-bottom:0;'>Dividend Yield</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>{ticker.info['dividendYield']}%</p>", unsafe_allow_html=True)
+            st.markdown("<h4 style='margin-bottom:0;'>Market Cap</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['marketCap']}</p>", unsafe_allow_html=True)
+
+
+
+        st.altair_chart(chart(filtered), use_container_width=True)
+        st.dataframe(data)
+    except ValueError:
+        st.write("Enter a symbol with the sidebar")
+
+    
+
+
+    
     
     
 
