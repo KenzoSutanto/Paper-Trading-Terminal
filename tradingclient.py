@@ -119,7 +119,7 @@ elif screen == "Chart":
             st.session_state.live_chart_data = st.session_state.live_chart_data.tail(100)
             chart_data = st.session_state.live_chart_data
         else:
-            hist = ticker.history(period="1d", interval="1m").reset_index()
+            hist = ticker.history(period="1d", interval="15m").reset_index()
             chart_data = hist[["Datetime", "Close"]].rename(columns={"Datetime": "Time", "Close": "Price"}).tail(100)
             st.info("Market is closed. Showing static 1-minute chart from today.")
 
@@ -130,8 +130,8 @@ elif screen == "Chart":
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.markdown("<h4 style='margin-bottom:0;'>Current Price</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['currentPrice']}</p>", unsafe_allow_html=True)
+            st.markdown("<h4 style='margin-bottom:0;'>Open Price</h4>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['open']}</p>", unsafe_allow_html=True)
             st.markdown("<h4 style='margin-bottom:0;'>Previous Close</h4>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['previousClose']}</p>", unsafe_allow_html=True)
 
