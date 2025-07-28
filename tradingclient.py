@@ -86,47 +86,58 @@ if screen == "Dashboard":
         for p in positions
     ])
 elif screen == "Chart":
-    import streamlit.components.v1 as components
+    import streamlit as st
     import yfinance as yf
     import pandas as pd
     import altair as alt
-    import datetime
-    from datetime import timedelta
-    from datetime import datetime
-    @st.cache_data
-    def fetch_stock(sym):
-       return yf.download(sym,datetime.now()-timedelta(days=7))
+    from datetime import datetime, timedelta
+    import pytz
+    from streamlit_autorefresh import st_autorefresh
+
+    def market_is_open():
+        eastern = pytz.timezone("US/Eastern")
+        now = datetime.now(eastern)
+        is_weekday = now.weekday() < 5
+        market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+        market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+        return is_weekday and market_open <= now <= market_close
+
     try:
-        ticker = yf.Ticker(st.session_state.sym)
-        data = (fetch_stock(st.session_state.sym))
-        data["Date"] = data.index
-        data = data[["Date","Open","Close","Volume"]]
-        max_date = max(data["Date"])
-        min_date = max_date - timedelta(days=7)
-        filtered = data[(data["Date"] >= min_date) & (data["Date"] <= max_date)]
-        min_price = float(filtered['Close'].min())
-        max_price = float(filtered['Close'].max())
+        symbol = st.session_state.sym
+        ticker = yf.Ticker(symbol)
+
+        if market_is_open():
+            st_autorefresh(interval=500, key="live_refresh")
+
+            if "live_chart_data" not in st.session_state:
+                st.session_state.live_chart_data = pd.DataFrame(columns=["Time", "Price"])
+
+            now = datetime.now()
+            price = ticker.fast_info["last_price"]
+            new_row = pd.DataFrame({"Time": [now], "Price": [price]})
+            st.session_state.live_chart_data = pd.concat([st.session_state.live_chart_data, new_row], ignore_index=True)
+            st.session_state.live_chart_data = st.session_state.live_chart_data.tail(100)
+            chart_data = st.session_state.live_chart_data
+        else:
+            hist = ticker.history(period="1d", interval="1m").reset_index()
+            chart_data = hist[["Datetime", "Close"]].rename(columns={"Datetime": "Time", "Close": "Price"}).tail(100)
+            st.info("Market is closed. Showing static 1-minute chart from today.")
+
+        min_price = float(chart_data["Price"].min())
+        max_price = float(chart_data["Price"].max())
         diff = (max_price - min_price) * 0.10
 
-
-
-        def chart(filtered):
-            chart = alt.Chart(filtered).mark_line().encode(
-                x=alt.X('Date:T', axis=alt.Axis(title='Date')),
-                y=alt.Y('Close:Q',scale=alt.Scale(domain=[min_price - diff, max_price + diff]), axis=alt.Axis(title='Close Price'))
-            )
-            return chart
         col1, col2, col3 = st.columns(3)
 
         with col1:
             st.markdown("<h4 style='margin-bottom:0;'>Current Price</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size:30px;  font-weight:bold;'>${ticker.info['currentPrice']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['currentPrice']}</p>", unsafe_allow_html=True)
             st.markdown("<h4 style='margin-bottom:0;'>Previous Close</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size:30px;  font-weight:bold;'>${ticker.info['previousClose']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['previousClose']}</p>", unsafe_allow_html=True)
 
         with col2:
             st.markdown("<h4 style='margin-bottom:0;'>Day High</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size:30px;  font-weight:bold;'>${ticker.info['dayHigh']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['dayHigh']}</p>", unsafe_allow_html=True)
             st.markdown("<h4 style='margin-bottom:0;'>Day Low</h4>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['dayLow']}</p>", unsafe_allow_html=True)
 
@@ -136,20 +147,13 @@ elif screen == "Chart":
             st.markdown("<h4 style='margin-bottom:0;'>Market Cap</h4>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['marketCap']}</p>", unsafe_allow_html=True)
 
+        chart = alt.Chart(chart_data).mark_line().encode(
+            x="Time:T",
+            y=alt.Y("Price:Q", scale=alt.Scale(domain=[min_price - diff, max_price + diff]))
+        ).properties(height=400)
 
+        st.altair_chart(chart, use_container_width=True)
+        st.dataframe(chart_data)
 
-        st.altair_chart(chart(filtered), use_container_width=True)
-        st.dataframe(data)
-    except ValueError:
-        st.write("Enter a symbol with the sidebar")
-
-    
-
-
-    
-    
-    
-
-
-   
-
+    except Exception:
+        st.warning("Please enter a valid symbol in the sidebar.")
