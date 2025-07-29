@@ -5,8 +5,8 @@
 4. Do python3/python -m streamlit run tradingclient.py
 
 **Features to add**
-A x or some indicator beside each position to close it
-Adding Limit orders with alpaca
-Adding Crypto support
-Adding Candlestick chart with indicators
-Adding a analysis page with financials and other misc data
+1. A x or some indicator beside each position to close it
+2. Adding Limit orders with alpaca
+3. Adding Crypto support
+4. Adding Candlestick chart with indicators
+5. Adding a analysis page with financials and other misc data
