@@ -6,6 +6,7 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 import datetime
+import random
 
 
 
@@ -37,13 +38,28 @@ def marketOrder():
     trading_client.submit_order(order_data=req)
 
 # ─── Static UI (keys preserve state across reruns) ────────────────────────────
+@st.dialog("Confirm Liquidation")
+def liq_all():
+    if "liquidation_code" not in st.session_state:
+        st.session_state.liquidation_code = random.randint(100000, 999999)
 
+    code = st.session_state.liquidation_code
+    st.write(f"Enter the following liquidation code: {code}")
+    reason = st.text_input("Enter the code")
+
+    if st.button("Submit Liquidation") and reason == str(code):
+        trading_client.close_all_positions(True)
+        del st.session_state.liquidation_code  
+        st.success("Your Liquidation order has been submitted, you may now close this window")
+        
+st.sidebar.button("LIQUIDATE ALL POSITONS AND ORDERS", on_click=liq_all)
 st.sidebar.selectbox("Time in Force", list(timeInForce), key="tif")
 st.sidebar.text_input("Symbol", key="sym",    help="Ticker").upper()
 st.sidebar.number_input("Qty",    key="qty",   min_value=0.1, step=0.1,
-                        help="Min 0.1 shares")
+                            help="Min 0.1 shares")
 st.sidebar.selectbox("Side", ["Buy","Sell"], key="orderSide")
 st.sidebar.button("Send Order", on_click=marketOrder)
+
 
 # ─── Dynamic Refresh ───────────────────────────────────────────────────────────
 screen = st.sidebar.radio("View", ["Dashboard", "Chart"])
@@ -93,6 +109,7 @@ elif screen == "Chart":
     from datetime import datetime, timedelta
     import pytz
     from streamlit_autorefresh import st_autorefresh
+    import streamlit.components.v1 as components
 
     def market_is_open():
         eastern = pytz.timezone("US/Eastern")
@@ -101,27 +118,69 @@ elif screen == "Chart":
         market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
         market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
         return is_weekday and market_open <= now <= market_close
+    components.html("""<!-- TradingView Widget BEGIN -->
+<div class="tradingview-widget-container">
+  <div class="tradingview-widget-container__widget"></div>
+  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"></a></div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+  {
+  "symbols": [
+    {
+      "proName": "FOREXCOM:SPXUSD",
+      "title": "S&P 500 Index"
+    },
+    {
+      "proName": "NYSE:BLK",
+      "title": "Blackrock Inc."
+    },
+    {
+      "proName": "NASDAQ:AAPL",
+      "title": "Apple Inc."
+    },
+    {
+      "proName": "NASDAQ:TSLA",
+      "title": "Tesla"
+    },
+    {
+      "proName": "NASDAQ:META",
+      "title": "Meta Inc."
+    },
+    {
+      "proName": "NASDAQ:NVDA",
+      "title": "Nvidia"
+    }
+  ],
+  "colorTheme": "dark",
+  "locale": "en",
+  "largeChartUrl": "",
+  "isTransparent": false,
+  "showSymbolLogo": true,
+  "displayMode": "adaptive"
+}
+  </script>
+</div>
+<!-- TradingView Widget END -->""")
 
     try:
         symbol = st.session_state.sym
         ticker = yf.Ticker(symbol)
 
         if market_is_open():
-            st_autorefresh(interval=500, key="live_refresh")
+            st_autorefresh(interval=500, key="live_refresh") #refreshes each
 
             if "live_chart_data" not in st.session_state:
                 st.session_state.live_chart_data = pd.DataFrame(columns=["Time", "Price"])
 
-            now = datetime.now()
+            now = datetime.now() 
             price = ticker.fast_info["last_price"]
             new_row = pd.DataFrame({"Time": [now], "Price": [price]})
             st.session_state.live_chart_data = pd.concat([st.session_state.live_chart_data, new_row], ignore_index=True)
-            st.session_state.live_chart_data = st.session_state.live_chart_data.tail(100)
-            chart_data = st.session_state.live_chart_data
+            st.session_state.live_chart_data = st.session_state.live_chart_data.tail(50)
+            chart_data = st.session_state.live_chart_data.sort_index(ascending=False)
         else:
             hist = ticker.history(period="1d", interval="15m").reset_index()
-            chart_data = hist[["Datetime", "Close"]].rename(columns={"Datetime": "Time", "Close": "Price"}).tail(100)
-            st.info("Market is closed. Showing static 1-minute chart from today.")
+            chart_data = hist[["Datetime", "Close"]].rename(columns={"Datetime": "Time", "Close": "Price"}).tail(50).sort_index(ascending=False)
+            st.info("Market is closed. Showing static 15-minute chart from today.")
 
         min_price = float(chart_data["Price"].min())
         max_price = float(chart_data["Price"].max())
@@ -139,7 +198,7 @@ elif screen == "Chart":
             st.markdown("<h4 style='margin-bottom:0;'>Day High</h4>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['dayHigh']}</p>", unsafe_allow_html=True)
             st.markdown("<h4 style='margin-bottom:0;'>Day Low</h4>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${ticker.info['dayLow']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:30px; font-weight:bold;'>${(ticker.info['dayLow']):.2f}</p>", unsafe_allow_html=True)
 
         with col3:
             st.markdown("<h4 style='margin-bottom:0;'>Dividend Yield</h4>", unsafe_allow_html=True)
