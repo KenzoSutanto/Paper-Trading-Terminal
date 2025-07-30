@@ -3,15 +3,19 @@ from streamlit_autorefresh import st_autorefresh
 import streamlit as st
 import keys
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 import datetime
 import random
+import pandas as pd
+
 
 
 
 # ─── Non‑UI setup ──────────────────────────────────────────────────────────────
-trading_client = TradingClient(keys.apiKey(), keys.secretKey(), paper=True)
+    
+
+trading_client = TradingClient(st.secrets, keys.secretKey(), paper=True)
 timeInForce = {
     "Good To Cancel(GTC)": TimeInForce.GTC,
     "Day(DAY)":            TimeInForce.DAY,
@@ -21,21 +25,46 @@ timeInForce = {
     "At The Close(CLS)":   TimeInForce.CLS,
 }
 
-def OrderRequest(sym, qty, side, tif):
+class Util: #This was provided by some medium article
+    @staticmethod
+    def to_dataframe(data):
+        if isinstance(data, list):
+            return pd.DataFrame([item.__dict__ for item in data])
+        return pd.DataFrame(data, columns=['tag', 'value']).set_index('tag')
+
+def marketOrderRequest(sym, qty, side, tif):
     return MarketOrderRequest(
         symbol=sym, qty=qty, side=side, time_in_force=timeInForce[tif]
     )
 
+def limitOrderRequest(sym, qty, side, lmtPrice ,tif):
+    LimitOrderRequest(
+        symbol = sym, qty = qty, side = side, limit_price = lmtPrice, tif=tif
+
+    )
+
 def marketOrder():
     side = OrderSide.BUY if st.session_state.orderSide=="Buy" else OrderSide.SELL
-    req  = OrderRequest(
+    req  = marketOrderRequest(
         st.session_state.sym,
         st.session_state.qty,
         side,
-        st.session_state.tif
-
+        st.session_state.tif  
     )
     trading_client.submit_order(order_data=req)
+
+def limitOrder():
+    side = OrderSide.BUY if st.session_state.orderSide=="Buy" else OrderSide.SELL
+    req = limitOrderRequest(
+        st.session_state.sym,
+        st.session_state.qty,
+        side,
+        st.session_state.tif,
+        float(st.session_state.lmtPrice)
+    )
+    trading_client.submit_order(order_data=req)
+
+
 
 # ─── Static UI (keys preserve state across reruns) ────────────────────────────
 @st.dialog("Confirm Liquidation")
@@ -57,8 +86,12 @@ st.sidebar.selectbox("Time in Force", list(timeInForce), key="tif")
 st.sidebar.text_input("Symbol", key="sym",    help="Ticker").upper()
 st.sidebar.number_input("Qty",    key="qty",   min_value=0.1, step=0.1,
                             help="Min 0.1 shares")
+limit = st.sidebar.toggle("Limit order")
 st.sidebar.selectbox("Side", ["Buy","Sell"], key="orderSide")
-st.sidebar.button("Send Order", on_click=marketOrder)
+if limit:
+    st.sidebar.number_input("Enter Limit Order Price", key="lmtPrice",   min_value=0.1, step=0.1,)
+                            
+st.sidebar.button("Send Order" , on_click=limitOrder if limit else marketOrder)
 
 
 # ─── Dynamic Refresh ───────────────────────────────────────────────────────────
@@ -80,18 +113,11 @@ if screen == "Dashboard":
         pnl_ph.markdown(f"**Today's P/L:** :red[$ {bal_chg:.2f}]")
 
     orders    = [o.dict() for o in trading_client.get_orders()]
-    positions = [p.dict() for p in trading_client.get_all_positions()]
+    positions = Util.to_dataframe(trading_client.get_all_positions())
+    orders = Util.to_dataframe(trading_client.get_orders())
 
-    orders_ph.markdown("### Orders").table([
-        {
-        "Symbol": o["symbol"],
-        "Side":   o["side"],
-        "Qty":    o["qty"],
-        "Status": o["status"],
-        "TIF":    o["time_in_force"]
-        }
-        for o in orders
-    ])
+    st.dataframe(orders[["symbol","side","qty","status","time_in_force"]].rename(columns={"symbol":"Symbol","qty":"Qty","status":"Status","time_in_force":"Time-In-Force"}))
+
 
     positions_ph.markdown("### Positions").table([
         {
@@ -118,55 +144,13 @@ elif screen == "Chart":
         market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
         market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
         return is_weekday and market_open <= now <= market_close
-    components.html("""<!-- TradingView Widget BEGIN -->
-<div class="tradingview-widget-container">
-  <div class="tradingview-widget-container__widget"></div>
-  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"></a></div>
-  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
-  {
-  "symbols": [
-    {
-      "proName": "FOREXCOM:SPXUSD",
-      "title": "S&P 500 Index"
-    },
-    {
-      "proName": "NYSE:BLK",
-      "title": "Blackrock Inc."
-    },
-    {
-      "proName": "NASDAQ:AAPL",
-      "title": "Apple Inc."
-    },
-    {
-      "proName": "NASDAQ:TSLA",
-      "title": "Tesla"
-    },
-    {
-      "proName": "NASDAQ:META",
-      "title": "Meta Inc."
-    },
-    {
-      "proName": "NASDAQ:NVDA",
-      "title": "Nvidia"
-    }
-  ],
-  "colorTheme": "dark",
-  "locale": "en",
-  "largeChartUrl": "",
-  "isTransparent": false,
-  "showSymbolLogo": true,
-  "displayMode": "adaptive"
-}
-  </script>
-</div>
-<!-- TradingView Widget END -->""")
 
     try:
         symbol = st.session_state.sym
         ticker = yf.Ticker(symbol)
 
         if market_is_open():
-            st_autorefresh(interval=500, key="live_refresh") #refreshes each time
+            st_autorefresh(interval=st.session_state.interval, key="live_refresh") #refreshes each time
 
             if "live_chart_data" not in st.session_state:
                 st.session_state.live_chart_data = pd.DataFrame(columns=["Time", "Price"])
@@ -212,6 +196,7 @@ elif screen == "Chart":
         ).properties(height=400)
 
         st.altair_chart(chart, use_container_width=True)
+        st.session_state.interval = st.number_input("Enter a refresh interval in miliseconds (ms)",min_value=500, step=100)
         st.dataframe(chart_data)
 
     except Exception:
