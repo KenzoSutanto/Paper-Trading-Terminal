@@ -1,7 +1,6 @@
 #source ./venv/bin/activate
 from streamlit_autorefresh import st_autorefresh
 import streamlit as st
-import keys
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -10,11 +9,9 @@ import random
 
 
 
-# ─── Non‑UI setup ──────────────────────────────────────────────────────────────
-try:    
-    trading_client = TradingClient(st.secrets["api_key"], st.secrets["secret_key"], paper=True)
-except:  
-    trading_client = TradingClient(keys.apiKey(), keys.secretKey(), paper=True)
+# ─── Non‑UI setup ────────────────────────────────────────────────────────────── 
+trading_client = TradingClient(st.secrets["api_key"], st.secrets["secret_key"], paper=True)
+
 timeInForce = {
     "Good To Cancel(GTC)": TimeInForce.GTC,
     "Day(DAY)":            TimeInForce.DAY,
