@@ -1,0 +1,7 @@
+streamlit
+pandas
+yfinance
+streamlit-autorefresh
+alpaca
+pytz
+altair
