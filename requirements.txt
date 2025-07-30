@@ -2,6 +2,6 @@ streamlit
 pandas
 yfinance
 streamlit-autorefresh
-alpaca
+alpaca-py
 pytz
 altair
