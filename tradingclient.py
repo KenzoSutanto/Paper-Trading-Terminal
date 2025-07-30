@@ -166,7 +166,7 @@ elif screen == "Chart":
         ticker = yf.Ticker(symbol)
 
         if market_is_open():
-            st_autorefresh(interval=500, key="live_refresh") #refreshes each time
+            st_autorefresh(interval=1500, key="live_refresh") #refreshes each time
 
             if "live_chart_data" not in st.session_state:
                 st.session_state.live_chart_data = pd.DataFrame(columns=["Time", "Price"])
