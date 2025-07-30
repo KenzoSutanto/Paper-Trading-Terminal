@@ -11,7 +11,10 @@ import random
 
 
 # ─── Non‑UI setup ──────────────────────────────────────────────────────────────
-trading_client = TradingClient(st.secrets["api_key"], st.secrets["secret_key"], paper=True)
+try:    
+    trading_client = TradingClient(st.secrets["api_key"], st.secrets["secret_key"], paper=True)
+except:  
+    trading_client = TradingClient(keys.apiKey(), keys.secretKey(), paper=True)
 timeInForce = {
     "Good To Cancel(GTC)": TimeInForce.GTC,
     "Day(DAY)":            TimeInForce.DAY,
