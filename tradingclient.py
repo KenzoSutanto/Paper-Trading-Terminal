@@ -37,7 +37,7 @@ def marketOrderRequest(sym, qty, side, tif):
 
 def limitOrderRequest(sym, qty, side, lmtPrice ,tif):
     LimitOrderRequest(
-        symbol = sym, qty = qty, side = side, limit_price = lmtPrice, tif=tif
+        symbol = sym, qty = qty, side = side, limit_price = lmtPrice, tif=timeInForce[tif]
 
     )
 
