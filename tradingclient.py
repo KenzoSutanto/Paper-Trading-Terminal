@@ -59,8 +59,8 @@ def limitOrder():
         st.session_state.sym,
         st.session_state.qty,
         side,
-        st.session_state.tif,
-        float(st.session_state.lmtPrice)
+        float(st.session_state.lmtPrice),
+        st.session_state.tif
     )
     trading_client.submit_order(order_data=req)
 
