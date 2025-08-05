@@ -10,3 +10,6 @@
 3. Adding Crypto support
 4. Adding Candlestick chart with indicators
 5. Adding a analysis page with financials and other misc data
+
+*Current work*
+Adding proper live data stream with Alpaca WSS
