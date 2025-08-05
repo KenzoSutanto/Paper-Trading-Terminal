@@ -5,10 +5,22 @@ import keys
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.data.live import StockDataStream
 import datetime
 import random
 import pandas as pd
 
+
+
+wss_client = StockDataStream('api-key', 'secret-key')
+
+async def quote_data_handler(data):
+
+    print(data)
+
+wss_client.subscribe_quotes(quote_data_handler, "SPY")
+
+wss_client.run()
 
 
 
@@ -110,21 +122,20 @@ if screen == "Dashboard":
     else:
         pnl_ph.markdown(f"**Today's P/L:** :red[$ {bal_chg:.2f}]")
 
-    orders    = [o.dict() for o in trading_client.get_orders()]
+
+
     positions = Util.to_dataframe(trading_client.get_all_positions())
     orders = Util.to_dataframe(trading_client.get_orders())
+    try:
+        st.dataframe(orders[["symbol","side","qty","status","time_in_force"]].rename(columns={"symbol":"Symbol","qty":"Qty","status":"Status","time_in_force":"Time-In-Force"}))
+    except:
+        st.dataframe(orders)
+    try:
+        st.dataframe(positions[["symbol","side","qty"]].rename(columns={"symbol":"Symbol","qty":"Qty","side":"Side"}))
 
-    st.dataframe(orders[["symbol","side","qty","status","time_in_force"]].rename(columns={"symbol":"Symbol","qty":"Qty","status":"Status","time_in_force":"Time-In-Force"}))
+    except:
+        st.dataframe(positions)
 
-
-    positions_ph.markdown("### Positions").table([
-        {
-        "Symbol": p["symbol"],
-        "Qty":    p["qty"],
-        "Side":   p["side"],
-        }
-        for p in positions
-    ])
 elif screen == "Chart":
     import streamlit as st
     import yfinance as yf
