@@ -12,18 +12,6 @@ import pandas as pd
 
 
 
-wss_client = StockDataStream('api-key', 'secret-key')
-
-async def quote_data_handler(data):
-
-    print(data)
-
-wss_client.subscribe_quotes(quote_data_handler, "SPY")
-
-wss_client.run()
-
-
-
 # ─── Non‑UI setup ──────────────────────────────────────────────────────────────
 try:    
     trading_client = TradingClient(st.secrets["api_key"], st.secrets["secret_key"], paper=True)
@@ -51,9 +39,8 @@ def marketOrderRequest(sym, qty, side, tif):
     )
 
 def limitOrderRequest(sym, qty, side, lmtPrice ,tif):
-    LimitOrderRequest(
+    return LimitOrderRequest(
         symbol = sym, qty = qty, side = side, limit_price = lmtPrice, tif=timeInForce[tif]
-
     )
 
 def marketOrder():
