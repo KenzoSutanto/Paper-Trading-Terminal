@@ -9,6 +9,7 @@ from alpaca.data.live import StockDataStream
 import datetime
 import random
 import pandas as pd
+from alpaca.common.exceptions import APIError
 
 
 
@@ -40,7 +41,7 @@ def marketOrderRequest(sym, qty, side, tif):
 
 def limitOrderRequest(sym, qty, side, lmtPrice ,tif):
     return LimitOrderRequest(
-        symbol = sym, qty = qty, side = side, limit_price = lmtPrice, tif=timeInForce[tif]
+        symbol = sym, qty = qty, side = side, limit_price = lmtPrice, time_in_force=timeInForce[tif]
     )
 
 def marketOrder():
@@ -51,8 +52,13 @@ def marketOrder():
         side,
         st.session_state.tif  
     )
-    trading_client.submit_order(order_data=req)
-
+    try:
+        trading_client.submit_order(order_data=req)
+    except APIError as e:
+        if "40010001" in str(e):
+            st.warning(f"Please enter a symbol")
+        
+    
 def limitOrder():
     side = OrderSide.BUY if st.session_state.orderSide=="Buy" else OrderSide.SELL
     req = limitOrderRequest(
@@ -62,7 +68,14 @@ def limitOrder():
         float(st.session_state.lmtPrice),
         st.session_state.tif
     )
-    trading_client.submit_order(order_data=req)
+    try:
+        trading_client.submit_order(order_data=req)
+    except APIError as e:
+        if "42210000" in str(e):
+            st.warning("Fractional Orders must be DAY only")
+        if "40010001" in str(e):
+            st.warning(f"Please enter a symbol")
+
 
 
 
@@ -90,7 +103,7 @@ limit = st.sidebar.toggle("Limit order")
 st.sidebar.selectbox("Side", ["Buy","Sell"], key="orderSide")
 if limit:
     st.sidebar.number_input("Enter Limit Order Price", key="lmtPrice",   min_value=0.1, step=0.1,)
-                            
+                           
 st.sidebar.button("Send Order" , on_click=limitOrder if limit else marketOrder)
 
 
@@ -149,6 +162,9 @@ elif screen == "Chart":
         ticker = yf.Ticker(symbol)
 
         if market_is_open():
+            if "interval" not in st.session_state:
+                st.session_state.interval = 5000
+
             st_autorefresh(interval=st.session_state.interval, key="live_refresh") #refreshes each time
 
             if "live_chart_data" not in st.session_state:
@@ -197,6 +213,7 @@ elif screen == "Chart":
         st.altair_chart(chart, use_container_width=True)
         st.session_state.interval = st.number_input("Enter a refresh interval in miliseconds (ms)",min_value=500, step=100)
         st.dataframe(chart_data)
+    
 
     except Exception:
         st.warning("Please enter a valid symbol in the sidebar.")
