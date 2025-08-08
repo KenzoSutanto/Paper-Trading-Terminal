@@ -93,7 +93,13 @@ def liq_all():
         
 st.sidebar.button("LIQUIDATE ALL POSITONS AND ORDERS", on_click=liq_all)
 st.sidebar.selectbox("Time in Force", list(timeInForce), key="tif")
-st.sidebar.text_input("Symbol", key="sym",    help="Ticker").upper()
+st.sidebar.text_input("Symbol", key="sym",    help="Ticker")
+# Ensure ticker symbols are stored in uppercase so downstream requests
+# receive normalized values. The text input widget stores the raw value in
+# ``st.session_state`` before we get a chance to modify it.
+# Therefore the result of ``.upper()`` must be written back to the session
+# state explicitly.
+st.session_state.sym = st.session_state.sym.upper()
 st.sidebar.number_input("Qty",    key="qty",   min_value=0.1, step=0.1,
                             help="Min 0.1 shares")
 limit = st.sidebar.toggle("Limit order")
